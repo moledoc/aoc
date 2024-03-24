@@ -1,7 +1,74 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+// #include <stdlib.h>
 #include <math.h>
+
+
+
+typedef unsigned short int UINT2; // 16-bit
+typedef unsigned long int UINT4; // 32-bit
+
+
+long double absd(long double x) {
+	if (x < 0) return -x;
+	return x;
+}
+
+/*
+unsigned int T[64];
+for (double i=0; i<64; ++i) {
+	unsigned int tmp = 4294967296 * sin(i+1);
+	T[(int)i] = tmp < 0 ? -tmp : tmp;
+}
+*/
+static unsigned int T[64] = {0xd76aa478,0xe8c7b756,0x242070db,0x3e423112,0xa83f051,0xb87839d6,0xa8304613,0xfd469501,0x698098d8,0x74bb0851,0xa44f,0x76a32842,0x6b901122,0xfd987193,0xa679438e,0xb64bf7df,0x9e1da9e,0x3fbf4cc0,0x265e5a51,0xe9b6c7aa,0xd62f105d,0xfdbbebad,0x275e197f,0x182c0438,0xde1e321a,0xc33707d6,0xf4d50d87,0x455a14ed,0x561c16fb,0x3105c08,0x9890fd27,0x8d2a4c8a,0xfffa3942,0x8771f681,0x92629ede,0x21ac7f4,0x5b4115bc,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,0xd764813a,0x155ed806,0x2b10cf7b,0x4881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0x3b53a99b,0xbd6ddbc,0xbcd50069,0xab9423a7,0xfc93a039,0x655b59c3,0x70f3336e,0x100b83,0x7a7ba22f,0x6fa87e4f,0xfe2ce6e0,0xa3014314,0xb1f7ee5f,0x8ac817e,0x42c50dcb,0x2ad7d2bb,0xeb86d391};
+
+// static unsigned int b2e32 = 0x77359400;
+
+
+unsigned F(UINT4 x, UINT4 y, UINT4 z) {
+	return (x & y) | ((~x) & z);
+}
+unsigned G(UINT4 x, UINT4 y, UINT4 z) {
+	return (x & y) | (y & (~z));
+}
+unsigned H(UINT4 x, UINT4 y, UINT4 z) {
+	return x ^ y ^ z;
+}
+unsigned I(UINT4 x, UINT4 y, UINT4 z) {
+	return y ^ (x | (~z));
+}
+unsigned rot_left(UINT4 x, unsigned s) {
+	return (x<<s) | (x >> (32-s));
+}
+
+unsigned round1(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+	a += F(b,c,d) + x + (UINT4)t;
+	a = rot_left(a, s);
+	a += b;
+	return a;	
+}
+
+unsigned round2(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+	a += G(b,c,d) + x + (UINT4)t;
+	a = rot_left(a, s);
+	a += b;
+	return a;	
+}
+
+unsigned round3(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+	a += H(b,c,d) + x + (UINT4)t;
+	a = rot_left(a, s);
+	a += b;
+	return a;	
+}
+
+unsigned round4(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+	a += I(b,c,d) + x + (UINT4)t;
+	a = rot_left(a, s);
+	a += b;
+	return a;	
+}
 
 void length_in_binary(size_t len, char *binary) {
 	int len_cpy = (int)len;
@@ -17,269 +84,118 @@ void length_in_binary(size_t len, char *binary) {
 	}
 }
 
-void hex_to_binary(int hex, int *binary) {
-	int hex_cpy = (int)hex;
-	size_t blen = 0;
-	while ( hex_cpy >>= 1 > 0) {
-		++blen;
-	}
-	blen += 1; // +1 for index 0;
-	hex_cpy = (char)hex;
-	for (int i=0; i<8-blen; ++i) {
-		binary[i] = 0;
-	}
-	for (int i=0; i<blen;++i) {
-		binary[8-i-1] = hex_cpy & 1 ? 1 : 0;
-		hex_cpy >>= 1;
-	}
-
-}
-
-void F(int x[], int y[], int z[], int out[]){
-	for (int i=0; i<32; ++i) {
-		out[i] = (x[i] & y[i]) | ((~x[i]) & z[i]);
-		// out[i] = x[i] ? y[i] : z[i];
-	}
-}
-void G(int x[], int y[], int z[], int out[]){
-	for (int i=0; i<32; ++i) {
-		out[i] = (x[i] & z[i]) | (y[i] & (~z[i]));
-	}
-}
-void H(int x[], int y[], int z[], int out[]){
-	for (int i=0; i<32; ++i) {
-		out[i] = x[i] ^ y[i] ^ z[i];
-	}
-}
-void I(int x[], int y[], int z[], int out[]){
-	for (int i=0; i<32; ++i) {
-		out[i] = y[i] ^ (x[i] | (~z[i]));
-	}
-}
-
-float absf(float x) {
-	if (x < 0) {
-		return -x;
-	}
-	return x;
-}
-
-void backup_register(int dest[], int src[]) {
-	for (int i=0; i<32; ++i) {
-		dest[i] = src[i];
-	}
-}
-
-void add_registers(int register_target[], int register_adder[]){
-	for (int i=0; i<32; ++i) {
-		register_target[i] += register_adder[i];
-	}
-}
-
-void add_scalar(int register_target[], unsigned int scalar) {
-	unsigned int modulo = (unsigned int)pow(2, 32);
-	for (int i=0; i<32; ++i) {
-		register_target[i] = ((unsigned) register_target[i] + scalar)%modulo;
-	}
-}
-
-void rot_left(int arr[], int s) {
-	int tmp[s];
-	for (int i=0; i<s; ++i) {
-		tmp[i] = arr[i];
-	}
-	for (int i=0; i<32-s; ++i) {
-		arr[i] = arr[i+s];
-	}
-	for (int i=0; i<s; ++i) {
-		arr[32-s+i] = tmp[i];
-	}
-}
-
-void print_register(int arr[]) {
-	for (int i=0; i<32; ++i) {
-		printf("%d", arr[i]);
-	}
-	putchar('\n');
-}
-
-void round1(int X[], unsigned int T[], int a[], int b[], int c[], int d[], int k, int s, int i){
-	// a = ((a+F(b,c,d)+X[k]+T[i]) <<< s) + b;
-	int out[32];
-	F(b,c,d, out);
-	add_registers(a, out);
-	add_scalar(a, X[k]);
-	add_scalar(a, T[i]);
-	rot_left(a, s);
-	add_registers(a, b);
-}
-
-void round2(int X[], unsigned int T[], int a[], int b[], int c[], int d[], int k, int s, int i){
-	// a = b + ((a + G(b,c,d) + X[k] + T[i]) <<< s);
-	int out[32];
-	G(b,c,d, out);
-	add_registers(a, out);
-	add_scalar(a, X[k]);
-	add_scalar(a, T[i]);
-	rot_left(a, s);
-	add_registers(a, b);
-}
-
-void round3(int X[], unsigned int T[], int a[], int b[], int c[], int d[], int k, int s, int i){
-	// a = b + ((a + H(b,c,d) + X[k] + T[i]) <<< s);
-	int out[32];
-	H(b,c,d, out);
-	add_registers(a, out);
-	add_scalar(a, X[k]);
-	add_scalar(a, T[i]);
-	rot_left(a, s);
-	add_registers(a, b);
-}
-
-void round4(int X[], unsigned int T[], int a[], int b[], int c[], int d[], int k, int s, int i){
-	// a = b + ((a + I(b,c,d) + X[k] + T[i]) <<< s);
-	int out[32];
-	I(b,c,d, out);
-	add_registers(a, out);
-	add_scalar(a, X[k]);
-	add_scalar(a, T[i]);
-	rot_left(a, s);
-	add_registers(a, b);
-}
 
 // https://www.rfc-editor.org/rfc/rfc1321
-char *md5(char *in) {
+void md5(char *in) {
 	size_t in_len = strlen(in);
-	int padding = 512-in_len%(512)-64;
-	int length = 64;
-	size_t digest_len = in_len+padding+length;
-	char *digest = malloc(digest_len*sizeof(char));
-	memset(digest, '0', in_len+padding+length);
+	int padding = 512-in_len%512==64 ? 512 : 512-in_len%(512)-64; // padding is always performed. So if in_len is already congruent, then add full cycle worth of padding
+	size_t digest_len = in_len+padding+64;
+	// char *digest = malloc(digest_len*sizeof(char));
+	char digest[digest_len+1];
+	digest[digest_len] = '\0';
+	memset(digest, '0', digest_len);
 	strncpy(digest, in, in_len);
 	digest[in_len]='1'; 
 	length_in_binary(in_len, digest+in_len+padding);
 
-	int a_hex[4] = {0x01, 0x23, 0x45, 0x67};
-	int b_hex[4] = {0x89, 0xab, 0xcd, 0xef};
-	int c_hex[4] = {0xfe, 0xdc, 0xba, 0x98};
-	int d_hex[4] = {0x76, 0x54, 0x32, 0x10};
+	UINT4 a0 = 0x67452301;
+	UINT4 b0 = 0xefcdab89;
+	UINT4 c0 = 0x98bacdfe;
+	UINT4 d0 = 0x10325476;
 
-	int a[32], b[32], c[32], d[32];
-	for (int i=0; i<32; i+=8) {
-		hex_to_binary(a_hex[i/8], a+i);
-		hex_to_binary(b_hex[i/8], b+i);
-		hex_to_binary(c_hex[i/8], c+i);
-		hex_to_binary(d_hex[i/8], d+i);
-	}
+	// printf("%s %d %d\n", digest, digest_len, strlen(digest));
 
-	unsigned int T[64];
-	for (float i=0; i<64; ++i) {
-		T[(int)i] = (unsigned int)(4294967296 * absf(sinf((float)i+1)));
-	}
+	for (int i=0; i<digest_len/512; ++i) {
 
-	for (int i=0; i<digest_len/16-1; ++i) {
-		int X[16];
-		for (int j=0; j<16; ++j) {
-			X[j] = digest[i*16+j];
+		UINT4 x[16];
+		for (int j=0; j<64; j+=4) {
+			x[j/4] = ((UINT4)digest[i*16+j] << 0) | (((UINT4)digest[i*16+j+1]) << 8) |
+   (((UINT4)digest[i*16+j+2]) << 16) | (((UINT4)digest[i*16+j+3]) << 24);
+			// printf("0x%x\n", x[j/4]);
 		}
 
-		int aa[32], bb[32], cc[32], dd[32];
-		backup_register(aa, a);
-		backup_register(bb, b);
-		backup_register(cc, c);
-		backup_register(dd, d);
+		UINT4 a = a0, b = b0, c = c0, d = d0;
 
-		// round 1
-		round1(X,T,a,b,c,d,0,7,1);
-		round1(X,T,d,a,b,c,1,12,2);
-		round1(X,T,c,d,a,b,2,17,3);
-		round1(X,T,b,c,d,a,3,22,4);
-		round1(X,T,a,b,c,d,4,7,5);
-		round1(X,T,d,a,b,c,5,12,6);
-		round1(X,T,c,d,a,b,6,17,7);
-		round1(X,T,b,c,d,a,7,22,8);
-		round1(X,T,a,b,c,d,8,7,9);
-		round1(X,T,d,a,b,c,9,12,10);
-		round1(X,T,c,d,a,b,10,17,11);
-		round1(X,T,b,c,d,a,11,22,12);
-		round1(X,T,a,b,c,d,12,7,13);
-		round1(X,T,d,a,b,c,13,12,14);
-		round1(X,T,c,d,a,b,14,17,15);
-		round1(X,T,b,c,d,a,15,22,16);
+		a = round1(a, b, c, d, x[0], 7, T[1]);
+		d = round1(d, a, b, c, x[1], 12, T[2]);
+		c = round1(c, d, a, b, x[2], 17, T[3]);
+		b = round1(b, c, d, a, x[3], 22, T[4]);
+		a = round1(a, b, c, d, x[4], 7, T[5]);
+		d = round1(d, a, b, c, x[5], 12, T[6]);
+		c = round1(c, d, a, b, x[6], 17, T[7]);
+		b = round1(b, c, d, a, x[7], 22, T[8]);
+		a = round1(a, b, c, d, x[8], 7, T[9]);
+		d = round1(d, a, b, c, x[9], 12, T[10]);
+		c = round1(c, d, a, b, x[10], 17, T[11]);
+		b = round1(b, c, d, a, x[11], 22, T[12]);
+		a = round1(a, b, c, d, x[12], 7, T[13]);
+		d = round1(d, a, b, c, x[13], 12, T[14]);
+		c = round1(c, d, a, b, x[14], 17, T[15]);
+		b = round1(b, c, d, a, x[15], 22, T[16]);
 
-		// round 2
-		round2(X,T,a,b,c,d,1,5,17);
-		round2(X,T,d,a,b,c,6,9,18);
-		round2(X,T,c,d,a,b,11,14,19);
-		round2(X,T,b,c,d,a,0,20,20);
-		round2(X,T,a,b,c,d,5,5,21);
-		round2(X,T,d,a,b,c,10,9,22);
-		round2(X,T,c,d,a,b,15,14,23);
-		round2(X,T,b,c,d,a,4,20,24);
-		round2(X,T,a,b,c,d,9,5,25);
-		round2(X,T,d,a,b,c,14,9,26);
-		round2(X,T,c,d,a,b,3,14,27);
-		round2(X,T,b,c,d,a,8,20,28);
-		round2(X,T,a,b,c,d,13,5,29);
-		round2(X,T,d,a,b,c,2,9,30);
-		round2(X,T,c,d,a,b,7,14,31);
-		round2(X,T,b,c,d,a,12,20,32);
+		a = round2(a, b, c, d, x[1], 5, T[17]);
+		d = round2(d, a, b, c, x[6], 9, T[18]);
+		c = round2(c, d, a, b, x[11], 14, T[19]);
+		b = round2(b, c, d, a, x[0], 20, T[20]);
+		a = round2(a, b, c, d, x[5], 5, T[21]);
+		d = round2(d, a, b, c, x[10], 9, T[22]);
+		c = round2(c, d, a, b, x[15], 14, T[23]);
+		b = round2(b, c, d, a, x[4], 20, T[24]);
+		a = round2(a, b, c, d, x[9], 5, T[25]);
+		d = round2(d, a, b, c, x[14], 9, T[26]);
+		c = round2(c, d, a, b, x[3], 14, T[27]);
+		b = round2(b, c, d, a, x[8], 20, T[28]);
+		a = round2(a, b, c, d, x[13], 5, T[29]);
+		d = round2(d, a, b, c, x[2], 9, T[30]);
+		c = round2(c, d, a, b, x[7], 14, T[31]);
+		b = round2(b, c, d, a, x[12], 20, T[32]);
 
-		// round 3
-		round3(X,T,a,b,c,d,5,4,33);
-		round3(X,T,d,a,b,c,8,11,34);
-		round3(X,T,c,d,a,b,11,16,35);
-		round3(X,T,b,c,d,a,14,23,36);
-		round3(X,T,a,b,c,d,1,4,37);
-		round3(X,T,d,a,b,c,4,11,38);
-		round3(X,T,c,d,a,b,7,16,39);
-		round3(X,T,b,c,d,a,10,23,40);
-		round3(X,T,a,b,c,d,13,4,41);
-		round3(X,T,d,a,b,c,0,11,42);
-		round3(X,T,c,d,a,b,3,16,43);
-		round3(X,T,b,c,d,a,6,23,44);
-		round3(X,T,a,b,c,d,9,4,45);
-		round3(X,T,d,a,b,c,12,11,46);
-		round3(X,T,c,d,a,b,15,16,47);
-		round3(X,T,b,c,d,a,2,23,48);
+		a = round3(a, b, c, d, x[5], 4, T[33]);
+		d = round3(d, a, b, c, x[8], 11, T[34]);
+		c = round3(c, d, a, b, x[11], 16, T[35]);
+		b = round3(b, c, d, a, x[14], 23, T[36]);
+		a = round3(a, b, c, d, x[1], 4, T[37]);
+		d = round3(d, a, b, c, x[4], 11, T[38]);
+		c = round3(c, d, a, b, x[7], 16, T[39]);
+		b = round3(b, c, d, a, x[10], 23, T[40]);
+		a = round3(a, b, c, d, x[13], 4, T[41]);
+		d = round3(d, a, b, c, x[0], 11, T[42]);
+		c = round3(c, d, a, b, x[3], 16, T[43]);
+		b = round3(b, c, d, a, x[6], 23, T[44]);
+		a = round3(a, b, c, d, x[9], 4, T[45]);
+		d = round3(d, a, b, c, x[12], 11, T[46]);
+		c = round3(c, d, a, b, x[15], 16, T[47]);
+		b = round3(b, c, d, a, x[2], 23, T[48]);
 
-		// round 4
-		round4(X,T,a,b,c,d,0,6,49);
-		round4(X,T,d,a,b,c,7,10,50);
-		round4(X,T,c,d,a,b,14,15,51);
-		round4(X,T,b,c,d,a,5,21,52);
-		round4(X,T,a,b,c,d,12,6,53);
-		round4(X,T,d,a,b,c,3,10,54);
-		round4(X,T,c,d,a,b,10,15,55);
-		round4(X,T,b,c,d,a,1,21,56);
-		round4(X,T,a,b,c,d,8,6,57);
-		round4(X,T,d,a,b,c,15,10,58);
-		round4(X,T,c,d,a,b,6,15,59);
-		round4(X,T,b,c,d,a,13,21,60);
-		round4(X,T,a,b,c,d,4,6,61);
-		round4(X,T,d,a,b,c,11,10,62);
-		round4(X,T,c,d,a,b,2,15,63);
-		round4(X,T,b,c,d,a,9,21,64);
+		a = round4(a, b, c, d, x[0], 6, T[49]);
+		d = round4(d, a, b, c, x[7], 10, T[50]);
+		c = round4(c, d, a, b, x[14], 15, T[51]);
+		b = round4(b, c, d, a, x[5], 21, T[52]);
+		a = round4(a, b, c, d, x[12], 6, T[53]);
+		d = round4(d, a, b, c, x[3], 10, T[54]);
+		c = round4(c, d, a, b, x[10], 15, T[55]);
+		b = round4(b, c, d, a, x[1], 21, T[56]);
+		a = round4(a, b, c, d, x[8], 6, T[57]);
+		d = round4(d, a, b, c, x[15], 10, T[58]);
+		c = round4(c, d, a, b, x[6], 15, T[59]);
+		b = round4(b, c, d, a, x[13], 21, T[60]);
+		a = round4(a, b, c, d, x[4], 6, T[61]);
+		d = round4(d, a, b, c, x[11], 10, T[62]);
+		c = round4(c, d, a, b, x[2], 15, T[63]);
+		b = round4(b, c, d, a, x[9], 21, T[64]);
 
-		add_registers(aa, a);
-		add_registers(bb, b);
-		add_registers(cc, c);
-		add_registers(dd, d);
+
+		a0 += a;
+		b0 += b;
+		c0 += c;
+		d0 += d;
 	}
-
-	char *msg = malloc(128*sizeof(char));
-	for (int i=0; i<32; ++i) {
-		msg[i+32*0] = (char)a[32-1-i];
-		msg[i+32*1] = (char)b[32-1-i];
-		msg[i+32*2] = (char)c[32-1-i];
-		msg[i+32*3] = (char)d[32-1-i];
-	}
-
-	return msg;
+	printf("%x %x %x %x\n", (unsigned) a0, (unsigned) b0, (unsigned) c0, (unsigned) d0);
 }
 
 int main(void) {
-	char *hash = md5("abcdef609043");
-	printf("%s\n", hash);
-	free(hash);
+	// char *hash = 
+md5("abcdef609043");
+	// printf("%s\n", hash);
+	// free(hash);
 }
