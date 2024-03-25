@@ -8,12 +8,6 @@
 typedef unsigned short int UINT2; // 16-bit
 typedef unsigned long int UINT4; // 32-bit
 
-
-long double absd(long double x) {
-	if (x < 0) return -x;
-	return x;
-}
-
 /*
 unsigned int T[64];
 for (double i=0; i<64; ++i) {
@@ -103,15 +97,18 @@ void md5(char *in) {
 	UINT4 c0 = 0x98bacdfe;
 	UINT4 d0 = 0x10325476;
 
-	// printf("%s %d %d\n", digest, digest_len, strlen(digest));
+	// printf("%s %d %d %d\n", digest, digest_len, strlen(digest), digest_len/16-1);
 
-	for (int i=0; i<digest_len/512; ++i) {
+	if (digest_len%16!=0) {
+		return; // TODO: error better
+	}
+
+	for (int i=0; i<digest_len/16; ++i) {
 
 		UINT4 x[16];
-		for (int j=0; j<64; j+=4) {
-			x[j/4] = ((UINT4)digest[i*16+j] << 0) | (((UINT4)digest[i*16+j+1]) << 8) |
+		for (int k=0, j=0; j<16; k+=1, j+=4) {
+			x[k] = ((UINT4)digest[i*16+j] << 0) | (((UINT4)digest[i*16+j+1]) << 8) |
    (((UINT4)digest[i*16+j+2]) << 16) | (((UINT4)digest[i*16+j+3]) << 24);
-			// printf("0x%x\n", x[j/4]);
 		}
 
 		UINT4 a = a0, b = b0, c = c0, d = d0;
@@ -190,6 +187,7 @@ void md5(char *in) {
 		c0 += c;
 		d0 += d;
 	}
+
 	printf("%x %x %x %x\n", (unsigned) a0, (unsigned) b0, (unsigned) c0, (unsigned) d0);
 }
 
