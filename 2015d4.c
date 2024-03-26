@@ -1,9 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-// #include <stdlib.h>
-#include <math.h>
-
-
+#include <limits.h>
 
 typedef unsigned short int UINT2; // 16-bit
 typedef unsigned long int UINT4; // 32-bit
@@ -36,28 +33,28 @@ unsigned rot_left(UINT4 x, unsigned s) {
 	return (x<<s) | (x >> (32-s));
 }
 
-unsigned round1(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+unsigned round1(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT4 t) {
 	a += F(b,c,d) + x + (UINT4)t;
 	a = rot_left(a, s);
 	a += b;
 	return a;	
 }
 
-unsigned round2(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+unsigned round2(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT4 t) {
 	a += G(b,c,d) + x + (UINT4)t;
 	a = rot_left(a, s);
 	a += b;
 	return a;	
 }
 
-unsigned round3(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+unsigned round3(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT4 t) {
 	a += H(b,c,d) + x + (UINT4)t;
 	a = rot_left(a, s);
 	a += b;
 	return a;	
 }
 
-unsigned round4(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT2 t) {
+unsigned round4(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT4 t) {
 	a += I(b,c,d) + x + (UINT4)t;
 	a = rot_left(a, s);
 	a += b;
@@ -78,19 +75,35 @@ void length_in_binary(size_t len, char *binary) {
 	}
 }
 
+void md5_memset(unsigned char *dest, char *src, size_t size) {
+	for (int i=0; i<size; ++i) {
+		dest[i] = src[i];
+	}
+}
 
 // https://www.rfc-editor.org/rfc/rfc1321
 void md5(char *in) {
+
 	size_t in_len = strlen(in);
-	int padding = 512-in_len%512==64 ? 512 : 512-in_len%(512)-64; // padding is always performed. So if in_len is already congruent, then add full cycle worth of padding
-	size_t digest_len = in_len+padding+64;
-	// char *digest = malloc(digest_len*sizeof(char));
-	char digest[digest_len+1];
-	digest[digest_len] = '\0';
-	memset(digest, '0', digest_len);
-	strncpy(digest, in, in_len);
-	digest[in_len]='1'; 
-	length_in_binary(in_len, digest+in_len+padding);
+	size_t padding_len = (56-in_len)%64;
+	size_t bits_len = 8;
+
+	size_t digest_len = in_len + padding_len + bits_len;
+	unsigned char digest[digest_len];
+
+	md5_memset(digest, in, in_len);
+
+	memset(digest+in_len, 0x00, padding_len);
+	digest[in_len] = 0x80;
+
+	char bits[bits_len];
+	for (size_t i=0, in_len_bits=in_len<<3; i<bits_len; ++i, in_len_bits>>=8) {
+		bits[i] = in_len_bits;
+	}
+	md5_memset(digest+in_len+padding_len, bits, bits_len);
+
+	// printf("%s %lu\n", digest, digest_len);
+	
 
 	UINT4 a0 = 0x67452301;
 	UINT4 b0 = 0xefcdab89;
@@ -100,100 +113,104 @@ void md5(char *in) {
 	// printf("%s %d %d %d\n", digest, digest_len, strlen(digest), digest_len/16-1);
 
 	if (digest_len%16!=0) {
+		fprintf(stderr, "digest_len is not mod16: %lu\n", digest_len);
 		return; // TODO: error better
 	}
 
-	for (int i=0; i<digest_len/16; ++i) {
+	for (int i=0; i<digest_len/64; ++i) { // REVIEWME: is the upper limit correct?
 
+		UINT4 a = a0;
+		UINT4 b = b0;
+		UINT4 c = c0;
+		UINT4 d = d0;
 		UINT4 x[16];
-		for (int k=0, j=0; j<16; k+=1, j+=4) {
+		memset(x, 0, sizeof(x));
+
+		for (int k=0, j=0; j<64; k+=1, j+=4) {
 			x[k] = ((UINT4)digest[i*16+j] << 0) | (((UINT4)digest[i*16+j+1]) << 8) |
    (((UINT4)digest[i*16+j+2]) << 16) | (((UINT4)digest[i*16+j+3]) << 24);
+			// printf("%d -- %lu\n", k, x[k]);
 		}
 
-		UINT4 a = a0, b = b0, c = c0, d = d0;
-
-		a = round1(a, b, c, d, x[0], 7, T[1]);
-		d = round1(d, a, b, c, x[1], 12, T[2]);
-		c = round1(c, d, a, b, x[2], 17, T[3]);
-		b = round1(b, c, d, a, x[3], 22, T[4]);
-		a = round1(a, b, c, d, x[4], 7, T[5]);
-		d = round1(d, a, b, c, x[5], 12, T[6]);
-		c = round1(c, d, a, b, x[6], 17, T[7]);
-		b = round1(b, c, d, a, x[7], 22, T[8]);
-		a = round1(a, b, c, d, x[8], 7, T[9]);
-		d = round1(d, a, b, c, x[9], 12, T[10]);
+		a = round1(a, b, c, d, x[ 0],  7, T[ 1]);
+		d = round1(d, a, b, c, x[ 1], 12, T[ 2]);
+		c = round1(c, d, a, b, x[ 2], 17, T[ 3]);
+		b = round1(b, c, d, a, x[ 3], 22, T[ 4]);
+		a = round1(a, b, c, d, x[ 4],  7, T[ 5]);
+		d = round1(d, a, b, c, x[ 5], 12, T[ 6]);
+		c = round1(c, d, a, b, x[ 6], 17, T[ 7]);
+		b = round1(b, c, d, a, x[ 7], 22, T[ 8]);
+		a = round1(a, b, c, d, x[ 8],  7, T[ 9]);
+		d = round1(d, a, b, c, x[ 9], 12, T[10]);
 		c = round1(c, d, a, b, x[10], 17, T[11]);
 		b = round1(b, c, d, a, x[11], 22, T[12]);
-		a = round1(a, b, c, d, x[12], 7, T[13]);
+		a = round1(a, b, c, d, x[12],  7, T[13]);
 		d = round1(d, a, b, c, x[13], 12, T[14]);
 		c = round1(c, d, a, b, x[14], 17, T[15]);
 		b = round1(b, c, d, a, x[15], 22, T[16]);
 
-		a = round2(a, b, c, d, x[1], 5, T[17]);
-		d = round2(d, a, b, c, x[6], 9, T[18]);
+		a = round2(a, b, c, d, x[ 1],  5, T[17]);
+		d = round2(d, a, b, c, x[ 6],  9, T[18]);
 		c = round2(c, d, a, b, x[11], 14, T[19]);
-		b = round2(b, c, d, a, x[0], 20, T[20]);
-		a = round2(a, b, c, d, x[5], 5, T[21]);
-		d = round2(d, a, b, c, x[10], 9, T[22]);
+		b = round2(b, c, d, a, x[ 0], 20, T[20]);
+		a = round2(a, b, c, d, x[ 5],  5, T[21]);
+		d = round2(d, a, b, c, x[10],  9, T[22]);
 		c = round2(c, d, a, b, x[15], 14, T[23]);
-		b = round2(b, c, d, a, x[4], 20, T[24]);
-		a = round2(a, b, c, d, x[9], 5, T[25]);
-		d = round2(d, a, b, c, x[14], 9, T[26]);
-		c = round2(c, d, a, b, x[3], 14, T[27]);
-		b = round2(b, c, d, a, x[8], 20, T[28]);
-		a = round2(a, b, c, d, x[13], 5, T[29]);
-		d = round2(d, a, b, c, x[2], 9, T[30]);
-		c = round2(c, d, a, b, x[7], 14, T[31]);
+		b = round2(b, c, d, a, x[ 4], 20, T[24]);
+		a = round2(a, b, c, d, x[ 9],  5, T[25]);
+		d = round2(d, a, b, c, x[14],  9, T[26]);
+		c = round2(c, d, a, b, x[ 3], 14, T[27]);
+		b = round2(b, c, d, a, x[ 8], 20, T[28]);
+		a = round2(a, b, c, d, x[13],  5, T[29]);
+		d = round2(d, a, b, c, x[ 2],  9, T[30]);
+		c = round2(c, d, a, b, x[ 7], 14, T[31]);
 		b = round2(b, c, d, a, x[12], 20, T[32]);
 
-		a = round3(a, b, c, d, x[5], 4, T[33]);
-		d = round3(d, a, b, c, x[8], 11, T[34]);
+		a = round3(a, b, c, d, x[ 5],  4, T[33]);
+		d = round3(d, a, b, c, x[ 8], 11, T[34]);
 		c = round3(c, d, a, b, x[11], 16, T[35]);
 		b = round3(b, c, d, a, x[14], 23, T[36]);
-		a = round3(a, b, c, d, x[1], 4, T[37]);
-		d = round3(d, a, b, c, x[4], 11, T[38]);
-		c = round3(c, d, a, b, x[7], 16, T[39]);
+		a = round3(a, b, c, d, x[ 1],  4, T[37]);
+		d = round3(d, a, b, c, x[ 4], 11, T[38]);
+		c = round3(c, d, a, b, x[ 7], 16, T[39]);
 		b = round3(b, c, d, a, x[10], 23, T[40]);
-		a = round3(a, b, c, d, x[13], 4, T[41]);
-		d = round3(d, a, b, c, x[0], 11, T[42]);
-		c = round3(c, d, a, b, x[3], 16, T[43]);
-		b = round3(b, c, d, a, x[6], 23, T[44]);
-		a = round3(a, b, c, d, x[9], 4, T[45]);
+		a = round3(a, b, c, d, x[13],  4, T[41]);
+		d = round3(d, a, b, c, x[ 0], 11, T[42]);
+		c = round3(c, d, a, b, x[ 3], 16, T[43]);
+		b = round3(b, c, d, a, x[ 6], 23, T[44]);
+		a = round3(a, b, c, d, x[ 9],  4, T[45]);
 		d = round3(d, a, b, c, x[12], 11, T[46]);
 		c = round3(c, d, a, b, x[15], 16, T[47]);
-		b = round3(b, c, d, a, x[2], 23, T[48]);
+		b = round3(b, c, d, a, x[ 2], 23, T[48]);
 
-		a = round4(a, b, c, d, x[0], 6, T[49]);
-		d = round4(d, a, b, c, x[7], 10, T[50]);
+		a = round4(a, b, c, d, x[ 0],  6, T[49]);
+		d = round4(d, a, b, c, x[ 7], 10, T[50]);
 		c = round4(c, d, a, b, x[14], 15, T[51]);
-		b = round4(b, c, d, a, x[5], 21, T[52]);
-		a = round4(a, b, c, d, x[12], 6, T[53]);
-		d = round4(d, a, b, c, x[3], 10, T[54]);
+		b = round4(b, c, d, a, x[ 5], 21, T[52]);
+		a = round4(a, b, c, d, x[12],  6, T[53]);
+		d = round4(d, a, b, c, x[ 3], 10, T[54]);
 		c = round4(c, d, a, b, x[10], 15, T[55]);
-		b = round4(b, c, d, a, x[1], 21, T[56]);
-		a = round4(a, b, c, d, x[8], 6, T[57]);
+		b = round4(b, c, d, a, x[ 1], 21, T[56]);
+		a = round4(a, b, c, d, x[ 8],  6, T[57]);
 		d = round4(d, a, b, c, x[15], 10, T[58]);
-		c = round4(c, d, a, b, x[6], 15, T[59]);
+		c = round4(c, d, a, b, x[ 6], 15, T[59]);
 		b = round4(b, c, d, a, x[13], 21, T[60]);
-		a = round4(a, b, c, d, x[4], 6, T[61]);
+		a = round4(a, b, c, d, x[ 4],  6, T[61]);
 		d = round4(d, a, b, c, x[11], 10, T[62]);
-		c = round4(c, d, a, b, x[2], 15, T[63]);
-		b = round4(b, c, d, a, x[9], 21, T[64]);
+		c = round4(c, d, a, b, x[ 2], 15, T[63]);
+		b = round4(b, c, d, a, x[ 9], 21, T[64]);
 
 
 		a0 += a;
 		b0 += b;
 		c0 += c;
 		d0 += d;
+		memset(x, 0, sizeof(x));
 	}
 
 	printf("%x %x %x %x\n", (unsigned) a0, (unsigned) b0, (unsigned) c0, (unsigned) d0);
 }
 
 int main(void) {
-	// char *hash = 
-md5("abcdef609043");
-	// printf("%s\n", hash);
-	// free(hash);
+	md5("abcdef609043");
 }
