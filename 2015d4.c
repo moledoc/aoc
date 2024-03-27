@@ -61,48 +61,50 @@ unsigned round4(UINT4 a, UINT4 b, UINT4 c, UINT4 d, UINT4 x, unsigned s, UINT4 t
 	return a;	
 }
 
-void length_in_binary(size_t len, char *binary) {
-	int len_cpy = (int)len;
-	size_t blen = 0;
-	while ( len_cpy >>= 1 > 0) {
-		++blen;
-	}
-	blen += 1; // +1 for index 0;
-	len_cpy = (char)len; 
-	for (int i=0; i<blen;++i) {
-		binary[64-i-1] = len_cpy & 1 ? '1' : '0';
-		len_cpy >>= 1;
-	}
-}
-
 void md5_memset(unsigned char *dest, char *src, size_t size) {
 	for (int i=0; i<size; ++i) {
 		dest[i] = src[i];
 	}
 }
 
+static void encode (unsigned char *output, UINT4 *input, unsigned int len) {
+	for (unsigned int i = 0, j = 0; j < len; i++, j += 4) {
+		output[j] = (unsigned char)(input[i] & 0xff);
+		output[j+1] = (unsigned char)((input[i] >> 8) & 0xff);
+		output[j+2] = (unsigned char)((input[i] >> 16) & 0xff);
+		output[j+3] = (unsigned char)((input[i] >> 24) & 0xff);
+	}
+}
+
+static void printer(unsigned char *digest, size_t len) {
+	for (int i=0; i<16; ++i) {
+		printf("%02x", digest[i]);
+	}
+	putchar('\n');
+}
+
 // https://www.rfc-editor.org/rfc/rfc1321
 void md5(char *in) {
 
 	size_t in_len = strlen(in);
-	size_t padding_len = (56-in_len)%64;
+	size_t padding_len = (in_len<<3)%512==512-64 ? 512>>3 : (512-64-(in_len<<3)%512)>>3;
 	size_t bits_len = 8;
 
-	size_t digest_len = in_len + padding_len + bits_len;
-	unsigned char digest[digest_len];
+	size_t buffer_len = in_len + padding_len + bits_len;
+	unsigned char buffer[buffer_len];
 
-	md5_memset(digest, in, in_len);
+	md5_memset(buffer, in, in_len);
 
-	memset(digest+in_len, 0x00, padding_len);
-	digest[in_len] = 0x80;
+	memset(buffer+in_len, 0x00 + '0', padding_len);
+	buffer[in_len] = '1'; // 0x80;
 
-	char bits[bits_len];
-	for (size_t i=0, in_len_bits=in_len<<3; i<bits_len; ++i, in_len_bits>>=8) {
-		bits[i] = in_len_bits;
-	}
-	md5_memset(digest+in_len+padding_len, bits, bits_len);
+	unsigned char bits[bits_len];
+	UINT4 count[2];
+	count[0] = in_len<<3; count[1] = 0;
+	encode(bits, count, 8);
+	md5_memset(buffer+in_len+padding_len, (char *)bits, bits_len);
 
-	// printf("%s %lu\n", digest, digest_len);
+	// printf("%s %lu\n", buffer, buffer_len);
 	
 
 	UINT4 a0 = 0x67452301;
@@ -110,14 +112,18 @@ void md5(char *in) {
 	UINT4 c0 = 0x98bacdfe;
 	UINT4 d0 = 0x10325476;
 
-	// printf("%s %d %d %d\n", digest, digest_len, strlen(digest), digest_len/16-1);
+	printf("%s %ld\n", buffer, buffer_len);
 
-	if (digest_len%16!=0) {
-		fprintf(stderr, "digest_len is not mod16: %lu\n", digest_len);
+	if ((buffer_len<<3)%16!=0) {
+		fprintf(stderr, "buffer_len<<3 is not mod16: %lu\n", buffer_len<<3);
 		return; // TODO: error better
 	}
 
-	for (int i=0; i<digest_len/64; ++i) { // REVIEWME: is the upper limit correct?
+	// processing each 16 (32-bit) word block, i.e.
+	// 16-word block is 16x32=512 bits;
+	// 8 bits make a byte
+	// 512/8=64
+	for (int i=0; i<buffer_len/64; ++i) { 
 
 		UINT4 a = a0;
 		UINT4 b = b0;
@@ -126,10 +132,13 @@ void md5(char *in) {
 		UINT4 x[16];
 		memset(x, 0, sizeof(x));
 
+		// i*64 because we want to decode each 16-word block (i.e. 64 bytes) to x on each iteration.
+		// this loop has 16 iterations: j=0,4,8,...,64
+		int block = 64;
 		for (int k=0, j=0; j<64; k+=1, j+=4) {
-			x[k] = ((UINT4)digest[i*16+j] << 0) | (((UINT4)digest[i*16+j+1]) << 8) |
-   (((UINT4)digest[i*16+j+2]) << 16) | (((UINT4)digest[i*16+j+3]) << 24);
-			// printf("%d -- %lu\n", k, x[k]);
+			x[k] = ((UINT4)buffer[i*block+j] << 0) | (((UINT4)buffer[i*block+j+1]) << 8) |
+   (((UINT4)buffer[i*block+j+2]) << 16) | (((UINT4)buffer[i*block+j+3]) << 24);
+			// printf("%d %d %d -- %lu\n", i,k, i*block+j+3, x[k]);
 		}
 
 		a = round1(a, b, c, d, x[ 0],  7, T[ 1]);
@@ -208,9 +217,13 @@ void md5(char *in) {
 		memset(x, 0, sizeof(x));
 	}
 
-	printf("%x %x %x %x\n", (unsigned) a0, (unsigned) b0, (unsigned) c0, (unsigned) d0);
+	unsigned char digest[16];
+	UINT4 state[4];
+	state[0] = a0; state[1] = b0; state[2] = c0; state[3] = d0;
+	encode(digest, state, 16);
+	printer(digest, 16);
 }
 
 int main(void) {
-	md5("abcdef609043");
+	md5("abcdef609043_111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
 }
