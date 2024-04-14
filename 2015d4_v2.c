@@ -100,7 +100,7 @@ WORD aux_i(WORD x, WORD y, WORD z) {
 }
 
 WORD round_1(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
-/*
+#ifndef REF
 	WORD anew = aux_f(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -108,12 +108,13 @@ WORD round_1(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-*/
+#else
 	return b + rot_left(a + aux_f(b, c, d) + x_k + t_i, s);
+#endif
 }
 
 WORD round_2(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
-/*
+#ifndef REF
 	WORD anew = aux_g(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -121,12 +122,13 @@ WORD round_2(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-*/
+#else
 	return b + rot_left(a + aux_g(b, c, d) + x_k + t_i, s);
+#endif
 }
 
 WORD round_3(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
-/*
+#ifndef REF
 	WORD anew = aux_h(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -134,12 +136,13 @@ WORD round_3(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-*/
+#else
 	return b + rot_left(a + aux_h(b, c, d) + x_k + t_i, s);
+#endif
 }
 
 WORD round_4(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
-/*
+#ifndef REF
 	WORD anew = aux_i(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -147,8 +150,9 @@ WORD round_4(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-*/
+#else
 	return b + rot_left(a + aux_i(b, c, d) + x_k + t_i, s);
+#endif
 }
 
 void printer(unsigned char *digest, size_t len) {
@@ -274,7 +278,6 @@ void md5(char *m) {
 		state[2] += c;
 		state[3] += d;
 	}
-  printf("%x %x %x %x\n", state[0], state[1], state[2], state[3]);
 	unsigned char digest[16];
 	encode(digest, state, 4);
 	printer(digest, 16);
