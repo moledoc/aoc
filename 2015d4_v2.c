@@ -2,28 +2,14 @@
 
 // https://www.rfc-editor.org/rfc/rfc1321
 
-typedef unsigned long int WORD; // 32-bits, little-endianess, uint4 (i.e. 4xBYTE=WORD)
-typedef unsigned char BYTE; // 8-bits, big-endianess
+typedef unsigned long int WORD; // 32-message_len_bits, little-endianess, uint4 (i.e. 4xBYTE=WORD)
+typedef unsigned char BYTE; // 8-message_len_bits, big-endianess
 
-WORD B2E32 = 0x100000000; // 2^32 or 16^8
+WORD B2E32 = 0x100000000; // 2^32 == 16^8
 
 BYTE PADDING[64] = {
-	0x80, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0, 0, 
-	0, 0, 0, 0, 
-	0, 0, 0, 0, 
-	0, 0, 0, 0, 
-	0, 0, 0, 0, 
-	0, 0, 0, 0
+	0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
 #define S11 7
@@ -76,29 +62,21 @@ void my_memset(unsigned char *dest, unsigned char c, size_t len) {
 	}
 }
 
-// only use it for preparing message len in bits for constructing message_pp
-void strbits(unsigned char *b, size_t len) {
-	unsigned long long int lenb = len << 3;
-	for (int i=0; i<2; ++i) {
-		b[4*i+0] = (unsigned char)(lenb >> ( 0+(32*i)));
-		b[4*i+1] = (unsigned char)(lenb >> ( 8+(32*i)));
-		b[4*i+2] = (unsigned char)(lenb >> (16+(32*i)));
-		b[4*i+3] = (unsigned char)(lenb >> (24+(32*i)));
-	}
-}
-
-// only use it for constructing digest
-void encode(unsigned char *digest, WORD state[4]) {
-	for (int i=0; i<16/4; ++i) {
-		digest[4*i+0] = (unsigned char)((state[i] >> ( 0+(32*i))) & 0xff);
-		digest[4*i+1] = (unsigned char)((state[i] >> ( 8+(32*i))) & 0xff);
-		digest[4*i+2] = (unsigned char)((state[i] >> (16+(32*i))) & 0xff);
-		digest[4*i+3] = (unsigned char)((state[i] >> (24+(32*i))) & 0xff);
+// expects: len(out) == 4*iters
+// expects: len(in)==iters
+void encode(unsigned char *out, WORD *in, int iters) {
+	for (int i=0; i<iters; ++i) {
+		out[4*i+0] = (unsigned char)((in[i] >> (8*0)) ); // & 0xff);
+		out[4*i+1] = (unsigned char)((in[i] >> (8*1)) ); //  & 0xff);
+		out[4*i+2] = (unsigned char)((in[i] >> (8*2)) ); //  & 0xff);
+		out[4*i+3] = (unsigned char)((in[i] >> (8*3)) ); //  & 0xff);
 	}
 }
 
 WORD plus(WORD a, WORD b) {
-	return (a+b)%B2E32;
+	return ((unsigned long long int)a+(unsigned long long int)b)%B2E32;
+	// unsigned long long int c = (unsigned long long int)a+(unsigned long long int)b;
+	// return (WORD) c%B2E32;
 }
 
 WORD rot_left(WORD a, int s) {
@@ -106,11 +84,11 @@ WORD rot_left(WORD a, int s) {
 }
 
 WORD aux_f(WORD x, WORD y, WORD z) {
-	return ((x) & (y)) | ((!x) & (z));
+	return ((x) & (y)) | ((~x) & (z));
 }
 
 WORD aux_g(WORD x, WORD y, WORD z) {
-	return ((x) & (z)) | ((y) & (!z));
+	return ((x) & (z)) | ((y) & (~z));
 }
 
 WORD aux_h(WORD x, WORD y, WORD z) {
@@ -118,28 +96,56 @@ WORD aux_h(WORD x, WORD y, WORD z) {
 }
 
 WORD aux_i(WORD x, WORD y, WORD z) {
-	return (y) ^ ((x) | (!z));
+	return (y) ^ ((x) | (~z));
 }
 
 WORD round_1(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
-	return b + rot_left(a + aux_f(b, c, d) + x_k + t_i, s);
+	WORD anew = aux_f(b, c, d);
+	anew = plus(a, anew);
+	anew = plus(anew, x_k);
+	anew = plus(anew, t_i);
+	anew = rot_left(anew, s);
+	anew = plus(b, anew);
+	return anew;
+	// return b + rot_left(a + aux_f(b, c, d) + x_k + t_i, s);
 }
 
 WORD round_2(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
-	return b + rot_left(a + aux_g(b, c, d) + x_k + t_i, s);
+	WORD anew = aux_g(b, c, d);
+	anew = plus(a, anew);
+	anew = plus(anew, x_k);
+	anew = plus(anew, t_i);
+	anew = rot_left(anew, s);
+	anew = plus(b, anew);
+	return anew;
+	// return b + rot_left(a + aux_g(b, c, d) + x_k + t_i, s);
 }
 
 WORD round_3(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
-	return b + rot_left(a + aux_h(b, c, d) + x_k + t_i, s);
+	WORD anew = aux_h(b, c, d);
+	anew = plus(a, anew);
+	anew = plus(anew, x_k);
+	anew = plus(anew, t_i);
+	anew = rot_left(anew, s);
+	anew = plus(b, anew);
+	return anew;
+	// return b + rot_left(a + aux_h(b, c, d) + x_k + t_i, s);
 }
 
 WORD round_4(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
-	return b + rot_left(a + aux_i(b, c, d) + x_k + t_i, s);
+	WORD anew = aux_i(b, c, d);
+	anew = plus(a, anew);
+	anew = plus(anew, x_k);
+	anew = plus(anew, t_i);
+	anew = rot_left(anew, s);
+	anew = plus(b, anew);
+	return anew;
+	// return b + rot_left(a + aux_i(b, c, d) + x_k + t_i, s);
 }
 
 void printer(unsigned char *digest, size_t len) {
 	for (int i=0; i<len; ++i) {
-		printf("%02x", digest[i]);
+		printf("%x", digest[i]);
 	}
 	putchar('\n');
 }
@@ -148,16 +154,17 @@ void md5(char *m) {
 	unsigned char *message = m;
 	size_t message_len = my_strlen((const unsigned char *)message);
 	size_t padding_len = message_len%56 == 0 ? 64 : 56-message_len%56;
-	unsigned char bits[8];
-	my_memset(bits, 0, 8);
-	strbits(bits, message_len);
+	unsigned char message_len_bits[8];
+	my_memset(message_len_bits, 0, 8);
+	WORD bits[2] = { (message_len << 3) & 0x0ffffffff, ((message_len << 3) >> 32) & 0x0ffffffff};
+	encode(message_len_bits, bits, 2);
 
 	size_t message_pp_len = message_len+padding_len+8;
 	unsigned char message_pp[message_pp_len];
 
 	my_memcpy(message_pp, message, message_len);
 	my_memcpy(message_pp+message_len, PADDING, padding_len);
-	my_memcpy(message_pp+message_len+padding_len, bits, 8);
+	my_memcpy(message_pp+message_len+padding_len, message_len_bits, 8);
 
 	WORD state[4] = {
 		0x67452301,
@@ -171,9 +178,9 @@ void md5(char *m) {
 		WORD x[16];
 		my_memset((unsigned char *)x, 0, 16);
 		for (int j=0; j<16; ++j) {
-			unsigned char tmp = message_pp[i*16+j];
-			x[j] = tmp >> (8*0) | tmp >> (8*1) | tmp >> (8*2) | tmp >> (8*3);
-			// x[j] = message_pp[i*16+j];
+			// WORD x_i = message_pp[i*16+j];
+			// x[j] = x_i << (8*0) | x_i << (8*1) | x_i << (8*2) | x_i << (8*3);
+			x[j] = message_pp[i*16+j];
 		}
 
 		WORD a = state[0];
@@ -253,13 +260,13 @@ void md5(char *m) {
 		state[1] += b;
 		state[2] += c;
 		state[3] += d;
+  printf("%x %x %x %x\n", a, b, c, d);
 	}
 	unsigned char digest[16];
-	encode(digest, state);
+	encode(digest, state, 4);
 	printer(digest, 16);
 }
 
 int main() {
-	md5("1234567890");
-	md5("abcdef609043");
+	md5("abcdef609043"); // expected: 000001dbbfa3a5c83a2d506429c7b00e
 }
