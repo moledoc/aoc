@@ -84,7 +84,7 @@ WORD rot_left(WORD a, int s) {
 }
 
 WORD aux_f(WORD x, WORD y, WORD z) {
-	return ((x) & (y)) | ((~x) & (z));
+	return (((x) & (y)) | ((~x) & (z)));
 }
 
 WORD aux_g(WORD x, WORD y, WORD z) {
@@ -99,7 +99,8 @@ WORD aux_i(WORD x, WORD y, WORD z) {
 	return (y) ^ ((x) | (~z));
 }
 
-WORD round_1(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
+WORD round_1(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
+/*
 	WORD anew = aux_f(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -107,10 +108,12 @@ WORD round_1(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-	// return b + rot_left(a + aux_f(b, c, d) + x_k + t_i, s);
+*/
+	return b + rot_left(a + aux_f(b, c, d) + x_k + t_i, s);
 }
 
-WORD round_2(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
+WORD round_2(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
+/*
 	WORD anew = aux_g(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -118,10 +121,12 @@ WORD round_2(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-	// return b + rot_left(a + aux_g(b, c, d) + x_k + t_i, s);
+*/
+	return b + rot_left(a + aux_g(b, c, d) + x_k + t_i, s);
 }
 
-WORD round_3(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
+WORD round_3(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
+/*
 	WORD anew = aux_h(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -129,10 +134,12 @@ WORD round_3(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-	// return b + rot_left(a + aux_h(b, c, d) + x_k + t_i, s);
+*/
+	return b + rot_left(a + aux_h(b, c, d) + x_k + t_i, s);
 }
 
-WORD round_4(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
+WORD round_4(WORD a, WORD b, WORD c, WORD d, WORD x_k, int s, WORD t_i) {
+/*
 	WORD anew = aux_i(b, c, d);
 	anew = plus(a, anew);
 	anew = plus(anew, x_k);
@@ -140,12 +147,13 @@ WORD round_4(WORD a, WORD b, WORD c, WORD d, WORD x_k, WORD t_i, int s) {
 	anew = rot_left(anew, s);
 	anew = plus(b, anew);
 	return anew;
-	// return b + rot_left(a + aux_i(b, c, d) + x_k + t_i, s);
+*/
+	return b + rot_left(a + aux_i(b, c, d) + x_k + t_i, s);
 }
 
 void printer(unsigned char *digest, size_t len) {
 	for (int i=0; i<len; ++i) {
-		printf("%x", digest[i]);
+		printf("%02x", digest[i]);
 	}
 	putchar('\n');
 }
@@ -173,14 +181,19 @@ void md5(char *m) {
 		0x10325476
 	};
 
-	for (int i=0; i<message_pp_len/16; ++i) {
+	for (int i=0; i<message_pp_len/64; ++i) {
 
 		WORD x[16];
 		my_memset((unsigned char *)x, 0, 16);
 		for (int j=0; j<16; ++j) {
 			// WORD x_i = message_pp[i*16+j];
 			// x[j] = x_i << (8*0) | x_i << (8*1) | x_i << (8*2) | x_i << (8*3);
-			x[j] = message_pp[i*16+j];
+			WORD x_i = message_pp[i*64+j*4];
+			x[j] = (((WORD)message_pp[i*64+j*4]) << (8*0)) |
+				(((WORD)message_pp[i*64+j*4+1]) << (8*1)) |
+				(((WORD)message_pp[i*64+j*4+2]) << (8*2)) |
+				(((WORD)message_pp[i*64+j*4+3]) << (8*3));
+			// x[j] = message_pp[i*16+j];
 		}
 
 		WORD a = state[0];
@@ -260,8 +273,8 @@ void md5(char *m) {
 		state[1] += b;
 		state[2] += c;
 		state[3] += d;
-  printf("%x %x %x %x\n", a, b, c, d);
 	}
+  printf("%x %x %x %x\n", state[0], state[1], state[2], state[3]);
 	unsigned char digest[16];
 	encode(digest, state, 4);
 	printer(digest, 16);
