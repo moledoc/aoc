@@ -51,9 +51,9 @@ defmodule Solution do
 
     vs = for {_, v} <- mp, do: v
     vs = Enum.sort(vs)
+    |> Enum.filter(fn(x) -> x <= 100_000 end)
 
-    IO.inspect(mp)
-    Enum.reduce(vs, 0, fn(x, acc) -> acc+x <= 100_000 && acc+x || acc end)
+    Enum.reduce(vs, 0, fn(x, acc) -> acc+x end)
   end
 
 end
