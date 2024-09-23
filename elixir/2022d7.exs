@@ -39,7 +39,7 @@ defmodule Solution do
     end
   end
 
-  def ex1(filename) do
+  def sizes(filename) do
     lines = File.read!(filename)
     |> String.trim("\n")
     |> String.split("\n")
@@ -48,17 +48,33 @@ defmodule Solution do
     parse(pid, lines, "")
     mp = Agent.get(pid, fn(map) -> map end)
     Agent.stop(pid, :normal)
+    mp
+  end
+
+  def ex1(filename) do
+    mp = sizes(filename)
+    vs = for {_, v} <- mp, do: v
+    vs 
+    |> Enum.sort()
+    |> Enum.filter(fn(x) -> x <= 100_000 end)
+    |> Enum.reduce(0, fn(x, acc) -> acc+x end)
+  end
+
+  def ex2(filename) do
+    mp = sizes(filename)
+    total_size = mp
+    |> Map.get("/")
+
+    needed = 30_000_000-(70_000_000-total_size)
 
     vs = for {_, v} <- mp, do: v
-    vs = Enum.sort(vs)
-    |> Enum.filter(fn(x) -> x <= 100_000 end)
-
-    Enum.reduce(vs, 0, fn(x, acc) -> acc+x end)
+    vs 
+    |> Enum.sort()
+    |> Enum.filter(fn(x) -> x >= needed end)
+    |> List.first
   end
 
 end
 
 IO.write("ex1: #{Solution.ex1("input.txt")}\n")
-# too low: 64012
-
-# IO.write("ex2: #{Solution.ex2("tmp.txt")}\n")
+IO.write("ex2: #{Solution.ex2("input.txt")}\n")
