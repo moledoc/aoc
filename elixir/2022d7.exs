@@ -30,14 +30,12 @@ defmodule Solution do
           |> Enum.join("/")
 
           e = Path.absname("/" <> e)
-          IO.inspect(es)
-          IO.inspect(cur_dir)
           Agent.update(pid, fn(map) -> Map.update(map, e, isize, fn(x) -> x+isize end) end)
         end)
 
         parse(pid, Enum.drop(lines, 1), cur_dir)
        x ->
-         IO.inspect("unexpected case: #{x}\n")
+         throw "unexpected case: '#{x}'"
     end
   end
 
@@ -48,15 +46,19 @@ defmodule Solution do
 
     {:ok, pid} = Agent.start_link(fn -> %{} end)
     parse(pid, lines, "")
-    IO.inspect(Agent.get(pid, fn(map) -> map end))
+    mp = Agent.get(pid, fn(map) -> map end)
     Agent.stop(pid, :normal)
+
+    vs = for {_, v} <- mp, do: v
+    vs = Enum.sort(vs)
+
+    IO.inspect(mp)
+    Enum.reduce(vs, 0, fn(x, acc) -> acc+x <= 100_000 && acc+x || acc end)
   end
 
 end
 
-IO.inspect("ex1: #{Solution.ex1("tmp.txt")}\n")
-# IO.write("ex2: #{Solution.ex2("tmp.txt")}\n")
+IO.write("ex1: #{Solution.ex1("input.txt")}\n")
+# too low: 64012
 
-# Map.update(%{a: 1}, :a, 13, fn existing_value -> existing_value * 2 end)
-    # %{a: 2}
-# Map.update(a, "/", 0, fn(x) -> x+1 end)
+# IO.write("ex2: #{Solution.ex2("tmp.txt")}\n")
