@@ -1,6 +1,6 @@
 defmodule Solution do
 
-  def tmp(line) do
+  def one_hot_seen(line) do
     {_, collect} = Enum.reduce(line, {-1, []}, fn(x, {highest, collect}) -> 
       cond do
         highest < x-> {x, [1| collect]}
@@ -18,11 +18,6 @@ defmodule Solution do
     end
   end
 
-  # def merge_mat(a, b, rows, cols) do
-  #     Enum.zip(fwd, bwd) 
-  #     |> Enum.map(fn({f,b}) -> f+b > 0 && 1 || 0 end)
-  # end
-
   def ex1(filename) do
     content = File.read!(filename)
     |> String.trim("\n")
@@ -32,21 +27,8 @@ defmodule Solution do
       |> Enum.filter(fn(x) -> x != "" end)
       |> Enum.map(fn(x) -> 
         String.to_integer(x)
-        # case x do
-        #   "" -> 0
-        #   _ -> String.to_integer(x) 
-        # end
       end)
     end)
-
-    # zeroes = content
-    # |> Enum.take(1)
-    # |> List.flatten
-    # |> Enum.map(fn(_x) -> 0 end)
-
-    # content = content
-    # |> List.insert_at(-1, zeroes)
-    # |> List.insert_at(0, zeroes)
 
     row_count = length(content)
     col_count = content
@@ -54,8 +36,8 @@ defmodule Solution do
     |> length
 
     rows = for row <- 0..(row_count-1) do
-      fwd = content |> Enum.at(row) |> tmp
-      bwd = content |> Enum.at(row) |> Enum.reverse |> tmp |> Enum.reverse
+      fwd = content |> Enum.at(row) |> one_hot_seen
+      bwd = content |> Enum.at(row) |> Enum.reverse |> one_hot_seen |> Enum.reverse
 
       Enum.zip(fwd, bwd) 
       |> Enum.map(fn({f,b}) -> f+b > 0 && 1 || 0 end)
@@ -65,15 +47,12 @@ defmodule Solution do
       col_line = for row <- 0..(row_count-1) do
         content |> Enum.at(row) |> Enum.at(col)
       end
-      fwd = col_line |> tmp
-      bwd = col_line |> Enum.reverse |> tmp |> Enum.reverse
+      fwd = col_line |> one_hot_seen
+      bwd = col_line |> Enum.reverse |> one_hot_seen |> Enum.reverse
 
       Enum.zip(fwd, bwd) 
       |> Enum.map(fn({f,b}) -> f+b > 0 && 1 || 0 end)
     end
-
-    # cols_t = transpose(cols, col_count, row_count)
-
 
     merged = for row <- 0..(row_count-1) do
       for col <- 0..(col_count-1) do
@@ -94,7 +73,75 @@ defmodule Solution do
     # |> dbg
   end
 
+  def safe_list(lst) do
+    case lst do
+      nil -> []
+      _ -> lst
+    end
+  end
+
+  def scenic(grid, lat, d_lat, lon, d_lon, target, acc) do
+
+    {lat, lon} = cond do
+      lat < 0 -> {nil, lon}
+      lon < 0 -> {lat, nil}
+      true -> {lat, lon}
+    end
+      
+    val = case {lat, lon} do
+      {nil, _lon} -> nil
+      {_lat, nil} -> nil
+      {lat, lon} -> Enum.at(grid, lat)
+        |> safe_list
+        |> Enum.at(lon)
+    end
+
+    cond do
+      val == nil -> acc
+      target <= val -> acc+1
+      true -> scenic(grid, lat+d_lat, d_lat, lon+d_lon, d_lon, target, acc+1)
+    end
+  end
+
+  def ex2(filename) do
+    content = File.read!(filename)
+    |> String.trim("\n")
+    |> String.split("\n")
+    |> Enum.map(fn(x) -> 
+      String.split(x, "")
+      |> Enum.filter(fn(x) -> x != "" end)
+      |> Enum.map(fn(x) -> 
+        String.to_integer(x)
+      end)
+    end)
+
+    row_count = length(content)
+    col_count = content
+    |> Enum.at(0)
+    |> length
+
+
+    res = for row <- 0..(row_count-1) do
+      for col <- 0..(col_count-1) do
+        target = content |> Enum.at(row) |> Enum.at(col)
+        score = scenic(content, row-1, -1, col, 0, target, 0)
+          * scenic(content, row+1, 1, col, 0, target, 0)
+          * scenic(content, row, 0, col+1, 1, target, 0)
+          * scenic(content, row, 0, col-1, -1, target, 0)
+        {row, col, score}
+      end
+    end
+
+
+    {_, _, highest} = res
+    |> List.flatten
+    |> Enum.sort_by(fn({_,_,score})->score end, :desc)
+    |> List.first
+
+    highest
+  end
+
 end
 
 IO.write("ex1: #{Solution.ex1("input.txt")}\n")
-# IO.write("ex2: #{Solution.ex2("tmp.txt")}\n")
+IO.write("ex2: #{Solution.ex2("input.txt")}\n")
