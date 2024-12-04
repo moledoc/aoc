@@ -16,7 +16,7 @@ def is_safe1(int_list):
 def is_safe2_recur(int_list, attempt):
 	if attempt > 1:
 		return 0
-	inc, dec, same, differ = 0, 0, 0, 0
+	inc, dec, differ = 0, 0, 0, 0
 	for i in range(1, len(int_list)):
 		dist = abs(int_list[i-1]-int_list[i])
 		differ += int(not (1 <= dist and dist <= 3))
