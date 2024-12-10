@@ -39,12 +39,14 @@ def is_loop(grid, coord, dir):
 	r, c = coord
 	dir = dirs[(dirs.index(dir)+1)%4]
 	# print(coord, orig_dir, dir)
+	turns = 0
 	while True:
 		s = steps[dir]
 		r, c = r+s[0], c+s[1]
-		if r < 0 or c < 0 or r >= len(grid) or c >= len(grid[0]):
+		if r < 0 or c < 0 or r >= len(grid) or c >= len(grid[0]) or turns > 1000:
 			return False
 		if grid[r][c] == '#':
+			turns += 1
 			r,c = r-s[0], c-s[1] # step back
 			dir = dirs[(dirs.index(dir)+1)%4] # change dir
 			s = steps[dir]
@@ -79,4 +81,4 @@ def ex2(filename):
 	return loops
 
 print(f"ex1: {ex1("./input.txt")}")
-print(f"ex2: {ex2("./sample.txt")}")
+print(f"ex2: {ex2("./input.txt")}")
