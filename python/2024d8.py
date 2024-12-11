@@ -38,6 +38,8 @@ def check_antinode2(grid, row, col, antinodes):
 	antenna = grid[row][col]
 	for r in range(len(grid)):
 		for c in range(len(grid[0])):
+			if r == row and c == col: # NOTE: handle only one its kind
+				continue
 			if grid[r][c] != antenna:
 				continue
 			r_dist = r - row
@@ -66,6 +68,8 @@ def check_antinode2(grid, row, col, antinodes):
 				if r_dist == 0 or c_dist == 0:
 					break
 				fact += 1
+
+			antinodes[row][col] = 1 # NOTE: handle only one its kind
 
 def ex2(filename):
 	with open(filename, "r") as f:
