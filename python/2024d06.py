@@ -19,7 +19,7 @@ def take_step(grid, r, c, dir):
 		r1, c1 = r+s[0], c+s[1]
 		if r1 < 0 or c1 < 0 or r1 >= len(grid) or c1 >= len(grid[0]):
 			return False, r, c, dir
-		if grid[r1][c1] == '#':
+		if grid[r1][c1] in ['#', 'O']:
 			dir = dirs[(dir+1)%4] # change dir
 			s = steps[dir]
 			r1, c1 = r+s[0], c+s[1] # step again
@@ -27,67 +27,46 @@ def take_step(grid, r, c, dir):
 		break
 	return True, r1, c1, dir
 
+def walk(grid, r, c, dir):
+	seen = {}
+	while True:
+		if (seen.get((r, c)) or -1) == dir:
+			return True
+		grid[r][c] = 'X'
+		seen |= {((r, c), dir)}
+		cont, r, c, dir = take_step(grid, r, c, dir)
+		if not cont:
+			break
+	return False
+
 def ex1(filename):
 	with open(filename, "r") as f:
 		grid = [list(line) for line in f.read().strip("\n").split("\n")]
 
 	coord, dir = start(grid)
 	r, c = coord
-	grid[r][c] = 'X'
-	while True:
-		cont, r, c, dir = take_step(grid, r, c, dir)
-		if not cont:
-			break
-		grid[r][c] = 'X'
-	return sum([1 if x == 'X' else 0 for xs in grid for x in xs])
+	walk(grid, r, c, dir)
+	return sum([c == 'X' for r in grid for c in r])
 
-def is_loop(grid, coord, dir):
-	orig_dir = dir
-	r, c = coord
 
-	# add tmp obs
-	cont, r1, c1, dir1 = take_step(grid, r, c, dir)
-	if not cont or dir1 != dir: # next step is out of bounds, don't add tmp obs or next step changed dir, meaning there already is a obs
-		return 0
-
-	before_obs = grid[r1][c1]
-	grid[r1][c1] = '#'
-
-	seen = {}
-
-	looped = 0
-	while True:
-		if r in seen and c in seen[r] and dir in seen[r][c]:
-			looped = 1
-			break
-		if r not in seen:
-			seen[r] = {}
-		if c not in seen[r]:
-			seen[r][c] = []
-		if dir not in seen[r][c]:
-			seen[r][c].append(dir)
-
-		cont, r, c, dir = take_step(grid, r, c, dir)
-		if not cont:
-			break
-
-	# rm tmp obs
-	grid[r1][c1] = before_obs
-	return looped
-
+# walk the path and mark all X's
+# for each X, check if that leads to a loop, by replacing the X with # and walking the path from start again
 def ex2(filename):
 	with open(filename, "r") as f:
 		grid = [list(line) for line in f.read().strip("\n").split("\n")]
 
 	coord, dir = start(grid)
 	r, c = coord
-	loops = 0
-	while True:
-		cont, r, c, dir = take_step(grid, r, c, dir)
-		if not cont:
-			break
-		loops += is_loop(grid, (r, c), dir)
-	return loops
+	walk(grid, r, c, dir)
+
+	obs = []
+	for row in range(len(grid)):
+		for col in range(len(grid[row])):
+			if grid[row][col] == 'X':
+				grid[row][col] = '#' # put tmp obs
+				obs.append(walk(grid, r, c, dir))
+				grid[row][col] = 'X' # rm tmp obs
+	return sum(obs)
 
 print(f"ex1: {ex1("./input.txt")}")
 print(f"ex2: {ex2("./input.txt")}")
