@@ -1,4 +1,8 @@
 
+dirChars = ['^', '>', 'v', '<']
+dirs = [0, 1, 2, 3]
+steps = {0: (-1, 0), 1: (0, 1), 2: (1, 0), 3: (0, -1)}
+
 def pprint(grid):
 	print("-------------------------")
 	print("\n".join(["".join(row) for row in grid]))
@@ -6,11 +10,22 @@ def pprint(grid):
 def start(grid):
 	for r in range(len(grid)):
 		for c in range(len(grid[0])):
-			if grid[r][c] in ['^', '>', 'v', '<']:
-				return (r, c), grid[r][c]
+			if grid[r][c] in dirChars:
+				return (r, c), dirChars.index(grid[r][c])
 
-dirs = ['^', '>', 'v', '<']
-steps = {'^': (-1, 0), '>': (0, 1), 'v': (1, 0), '<': (0, -1)}
+def take_step(grid, r, c, dir):
+	while True:
+		s = steps[dir]
+		r1, c1 = r+s[0], c+s[1]
+		if r1 < 0 or c1 < 0 or r1 >= len(grid) or c1 >= len(grid[0]):
+			return False, r, c, dir
+		if grid[r1][c1] == '#':
+			dir = dirs[(dir+1)%4] # change dir
+			s = steps[dir]
+			r1, c1 = r+s[0], c+s[1] # step again
+			continue
+		break
+	return True, r1, c1, dir
 
 def ex1(filename):
 	with open(filename, "r") as f:
@@ -20,41 +35,45 @@ def ex1(filename):
 	r, c = coord
 	grid[r][c] = 'X'
 	while True:
-		s = steps[dir]
-		r, c = r+s[0], c+s[1]
-		if r < 0 or c < 0 or r >= len(grid) or c >= len(grid[0]):
+		cont, r, c, dir = take_step(grid, r, c, dir)
+		if not cont:
 			break
-		if grid[r][c] == '#':
-			r,c = r-s[0], c-s[1] # step back
-			dir = dirs[(dirs.index(dir)+1)%4] # change dir
-			s = steps[dir]
-			r, c = r+s[0], c+s[1] # step again
 		grid[r][c] = 'X'
-		# pprint(grid)
-	# pprint(grid)
 	return sum([1 if x == 'X' else 0 for xs in grid for x in xs])
 
 def is_loop(grid, coord, dir):
 	orig_dir = dir
 	r, c = coord
-	dir = dirs[(dirs.index(dir)+1)%4]
-	# print(coord, orig_dir, dir)
-	turns = 0
+
+	# add tmp obs
+	cont, r1, c1, dir1 = take_step(grid, r, c, dir)
+	if not cont or dir1 != dir: # next step is out of bounds, don't add tmp obs or next step changed dir, meaning there already is a obs
+		return 0
+
+	before_obs = grid[r1][c1]
+	grid[r1][c1] = '#'
+
+	seen = {}
+
+	looped = 0
 	while True:
-		s = steps[dir]
-		r, c = r+s[0], c+s[1]
-		if r < 0 or c < 0 or r >= len(grid) or c >= len(grid[0]) or turns > 1000:
-			return False
-		if grid[r][c] == '#':
-			turns += 1
-			r,c = r-s[0], c-s[1] # step back
-			dir = dirs[(dirs.index(dir)+1)%4] # change dir
-			s = steps[dir]
-			r, c = r+s[0], c+s[1] # step again
-		if (r, c) == coord:
-			# print(r, c, orig_dir)
-			return True
-	return False
+		if r in seen and c in seen[r] and dir in seen[r][c]:
+			looped = 1
+			break
+		if r not in seen:
+			seen[r] = {}
+		if c not in seen[r]:
+			seen[r][c] = []
+		if dir not in seen[r][c]:
+			seen[r][c].append(dir)
+
+		cont, r, c, dir = take_step(grid, r, c, dir)
+		if not cont:
+			break
+
+	# rm tmp obs
+	grid[r1][c1] = before_obs
+	return looped
 
 def ex2(filename):
 	with open(filename, "r") as f:
@@ -62,22 +81,12 @@ def ex2(filename):
 
 	coord, dir = start(grid)
 	r, c = coord
-	grid[r][c] = 'X'
 	loops = 0
 	while True:
-		s = steps[dir]
-		r, c = r+s[0], c+s[1]
-		if r < 0 or c < 0 or r >= len(grid) or c >= len(grid[0]):
+		cont, r, c, dir = take_step(grid, r, c, dir)
+		if not cont:
 			break
-		if grid[r][c] == '#':
-			r,c = r-s[0], c-s[1] # step back
-			dir = dirs[(dirs.index(dir)+1)%4] # change dir
-			s = steps[dir]
-			r, c = r+s[0], c+s[1] # step again
-		grid[r][c] = 'X'
-		loops += 1 if is_loop(grid, (r, c), dir) else 0
-		# pprint(grid)
-	# pprint(grid)
+		loops += is_loop(grid, (r, c), dir)
 	return loops
 
 print(f"ex1: {ex1("./input.txt")}")
