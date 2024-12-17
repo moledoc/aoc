@@ -1,5 +1,5 @@
+
 def pprint(int_list):
-	
 	print("".join([str(x) for x in int_list if x != -1]))
 
 
@@ -48,65 +48,65 @@ def ex1(filename):
 				file_blocks = file_blocks[:len(file_blocks)-1]
 		free_spaces = free_spaces[1::]
 
-	# pprint(new_disk_mapping)
 	checksum = 0
 	for i in range(len(new_disk_mapping)):
 		checksum += i * new_disk_mapping[i]
 	return checksum
 
-# 6787922826883 too high
 def ex2(filename):
 	with open(filename, "r") as f:
 		disk_map = [int(line) for line in f.read().strip("\n")]
 
-	disk_map_tuples = [(-1, -1) for _ in range(len(disk_map))]
+	dmap = [(-1, -1) for _ in range(len(disk_map))]
 
 	id = 0
-	for i in range(len(disk_map)):
-		if i % 2 == 0:
-			disk_map_tuples[i] = (id, disk_map[i])
-			id += 1
-		else:
-			disk_map_tuples[i] = (-1, disk_map[i])
+	for i in range(0, len(dmap), 2):
+		dmap[i] = (id, disk_map[i])
+		id += 1
+	for i in range(1, len(dmap), 2):
+		dmap[i] = (-1, disk_map[i])
 
-	r_offset = len(disk_map_tuples)
-
-	seen = {}
+	r = len(dmap)
 	while True:
-		r_offset -= 1
-		if r_offset < 0:
+		r -= 1
+		if r < 0:
 			break
-
-		r_id, r_count = disk_map_tuples[r_offset]
-
-		if r_id == -1:
+		r_id, r_count = dmap[r]
+		if r_id == -1: # skip empty blocks
 			continue
-
-		for l in range(len(disk_map_tuples)):
-			l_id, l_count = disk_map_tuples[l]
-			if l_id != -1:
+		for l in range(r):
+			if l >= r:
+				break
+			l_id, l_count = dmap[l]
+			if l_id != -1: # skip file blocks
 				continue
-			if l > r_offset: # don't move stuff we already touched
-				break
-			if r_count == l_count: # swap places
-				disk_map_tuples[l] = (r_id, r_count)
-				disk_map_tuples[r_offset] = (-1, r_count)
-				r_offset -= 1
-				break
-			elif r_count < l_count:
-				# swap empty with file block
-				disk_map_tuples[l] = (l_id, l_count - r_count)
-				disk_map_tuples[r_offset] = (-1, r_count)
-				# add new file block tuple
-				disk_map_tuples.insert(l, (r_id, r_count))
-				r_offset -= 1
-				break
+			if l_count < r_count: # skip empty blocks that are smaller
+				continue
 
-	# print(disk_map_tuples)
+			dmap[l] = (r_id, r_count) # move right to left with right_count
+			
+			# move empty to left with right count
+			# and concat surrounding empty blocks
+			extra = 0
+			if r + 1 < len(dmap):
+				if dmap[r+1][0] == -1:
+					extra += dmap[r+1][1]
+					dmap[r+1] = (-1, 0)
+			if dmap[r-1][0] == -1:
+				extra += dmap[r-1][1]
+				dmap[r-1] = (-1, 0)
+			dmap[r] = (l_id, r_count+extra) # move left id to right with right_count
+			# add left-over empty block
+			if l_count > r_count:
+				dmap.insert(l+1, (-1, l_count - r_count))
+				r += 1
+			break
+			
 	new_disk_map = []
-	for id, count in disk_map_tuples:
+	for id, count in dmap:
+		if id == -1 and count == 0:
+			continue
 		new_disk_map.extend([id for _ in range(count)])
-	# pprint(new_disk_map)
 
 	checksum = 0
 	for i in range(len(new_disk_map)):
