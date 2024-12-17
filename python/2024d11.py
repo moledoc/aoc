@@ -22,7 +22,7 @@ def ex(filename, iters):
 				n_mapping[n2] = (n_mapping.get(n2) or 0) + v
 			else:
 				n_mapping[2024*k] = (n_mapping.get(2024*k) or 0) + v
-			mapping = n_mapping
+		mapping = n_mapping
 
 	sum = 0
 	for k, v in mapping.items():
