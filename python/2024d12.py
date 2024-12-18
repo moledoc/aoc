@@ -117,6 +117,7 @@ def contains(lseen, lseen_inner):
 
 	return True
 
+# 884402 - too low
 def ex2(filename):
 	with open(filename, "r") as f:
 		grid = [list(line) for line in f.read().strip().split('\n')]
@@ -152,22 +153,29 @@ def ex2(filename):
 
 		side_count = sides[topleft]
 
-		# check each topleft, if any has current left and above, then it's nested region
-		for topleft_inner, lseen_inner in local_seens.items():
-			ri, ci = topleft_inner
-			if ri-1 < 0 or ci-1 < 0:
+		for r in range(len(lseen)):
+			if r < topleft[0]:
 				continue
-			if contains(lseen, lseen_inner):
-				if topleft_inner not in sides:
-					start_coord = (ri, ci-1)
-					end_coord = (ri-1, ci-1) # end one step further from start to catch edge case turn
-					sides[topleft_inner] = trace_outside(grid=lseen_inner, coord=start_coord, end_coord=end_coord, dir=dirChars.index('>'), turns=0, path=[])
-				side_count += sides[topleft_inner]
+			row_region_start = False
+			for c in range(len(lseen[0])):
+				if lseen[r][c] >= 0:
+					row_region_start = True
+					continue
+				if row_region_start and lseen[r][c] < 0 and (r, c) in local_seens:
+					topleft_inner = (r, c)
+					lseen_inner = local_seens[topleft_inner]
+					if contains(lseen, lseen_inner):
+						if topleft_inner not in sides:
+							start_coord = (r, c-1)
+							end_coord = (r-1, c-1) # end one step further from start to catch edge case turn
+							sides[topleft_inner] = trace_outside(grid=lseen_inner, coord=start_coord, end_coord=end_coord, dir=dirChars.index('>'), turns=0, path=[])
+						side_count += sides[topleft_inner] 
+					
 
 		# print(area, side_count, area*side_count)
 		price += area*side_count
 	return price
 
 
-# print(f"ex1: {ex1("./input.txt")}")
+print(f"ex1: {ex1("./input.txt")}")
 print(f"ex2: {ex2("./input.txt")}")
